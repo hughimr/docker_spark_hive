@@ -1,0 +1,47 @@
+FROM rastasheep/ubuntu-sshd
+MAINTAINER flat2010 <>  
+  
+ENV REFRESHED_AT 2017-08-07
+
+COPY copyfiles/sources.list /etc/apt/
+RUN apt-get update
+RUN apt-get install -y sudo vim net-tools
+  
+ADD tgzfiles/jdk-8u111-linux-x64.tar.gz /usr/local/  
+  
+ENV JAVA_HOME /usr/local/jdk1.8.0_111  
+ENV CLASSPATH $JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar  
+ENV PATH $PATH:$JAVA_HOME/bin  
+  
+RUN addgroup hadoop  
+RUN useradd -m hadoop -g hadoop -p hadoop -s /bin/bash
+# RUN sudo usermod -aG sudo hadoop  
+  
+ADD tgzfiles/hadoop-2.6.5.tar.gz /usr/local/  
+
+RUN chown -R hadoop:hadoop /usr/local/hadoop-2.6.5   
+RUN cd /usr/local && ln -s ./hadoop-2.6.5 hadoop
+RUN  rm -rf /usr/local/hadoop/lib/native
+ADD /tgzfiles/hadoop-2.6.5-native-lib.tar /usr/local/hadoop/lib
+  
+ENV HADOOP_PREFIX /usr/local/hadoop  
+ENV HADOOP_HOME /usr/local/hadoop  
+ENV HADOOP_COMMON_HOME /usr/local/hadoop  
+ENV HADOOP_HDFS_HOME /usr/local/hadoop  
+ENV HADOOP_MAPRED_HOME /usr/local/hadoop  
+ENV HADOOP_YARN_HOME /usr/local/hadoop  
+ENV HADOOP_CONF_DIR /usr/local/hadoop/etc/hadoop  
+  
+RUN cd /etc/sudoers.d && sudo touch nopasswdsudo && echo "hadoop ALL=(ALL) NOPASSWD:ALL" >> nopasswdsudo
+  
+#RUN mkdir /var/run/sshd
+  
+USER hadoop  
+  
+RUN ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa  
+RUN cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys   
+# 下面这两句比较特殊，在centos6上必须要有，否则创建出来的容器sshd不能登录  
+#RUN ssh-keygen -t dsa -f /etc/ssh/ssh_host_dsa_key  
+#RUN ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key
+  
+EXPOSE 22  

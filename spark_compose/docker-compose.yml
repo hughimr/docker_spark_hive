@@ -1,0 +1,116 @@
+version: '3'
+services:
+    spark-master:
+      image: flat2010:spark-master
+      container_name: spark-master
+      links:
+        - spark-slave1
+        - spark-slave2
+        - spark-slave3
+        - spark-slave4
+      expose:
+        - "9000"
+        - "2181"
+
+      ports:
+        - "8042:8042"
+        - "19888:19888"
+        - "50070:50070"
+        - "8088:8088"
+        - "9000:9000"
+        - "9001:9001"
+        - "2181:2181"
+        - "16010:16010"
+        - "16301:16301"
+        - "16201:16201"
+        - "4040:4040"
+        - "8080:8080"
+        - "7077:7077"
+        - "18080:18080"
+      volumes:
+        - /home/develop/hadoop_datas:/home/hadoop/hadoop_datas
+        - /home/develop/spark_datas:/home/hadoop/spark_datas
+      hostname: spark-master
+      networks:
+        cluster:
+          ipv4_address: 192.168.3.110
+
+    spark-slave1:
+      image: flat2010:spark-slave
+      container_name: spark-slave1
+      expose:
+        - "2181"
+        - "2888"
+        - "3888"
+        - "9000"
+      ports:
+        - "8081:8081"
+      privileged: true
+      networks:
+        cluster:
+          ipv4_address: 192.168.3.111
+#      dns:
+#        - 192.168.1.107
+      hostname: spark-slave1
+
+    spark-slave2:
+      image: flat2010:spark-slave
+      container_name: spark-slave2
+      expose:
+        - "2181"
+        - "2888"
+        - "3888"
+        - "9000"
+      ports:
+        - "8071:8081"
+      privileged: true
+      networks:
+        cluster:
+          ipv4_address: 192.168.3.112
+#      dns:
+#        - 192.168.1.107
+      hostname: spark-slave2
+
+    spark-slave3:
+      image: flat2010:spark-slave
+      container_name: spark-slave3
+      expose:
+        - "2181"
+        - "2888"
+        - "3888"
+        - "9000"
+      ports:
+        - "8061:8081"
+      privileged: true
+      networks:
+        cluster:
+          ipv4_address: 192.168.3.113
+#      dns:
+#        - 192.168.1.107
+      hostname: spark-slave3
+
+    spark-slave4:
+      image: flat2010:spark-slave
+      container_name: spark-slave4
+      expose:
+        - "2181"
+        - "2888"
+        - "3888"
+        - "9000"
+      ports:
+        - "8051:8081"
+      networks:
+        cluster:
+          ipv4_address: 192.168.3.114
+      privileged: true
+#      dns:
+#        - 192.168.1.107
+      hostname: spark-slave4
+
+networks:
+  cluster:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+      - subnet: 192.168.3.0/24

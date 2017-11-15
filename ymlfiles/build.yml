@@ -1,0 +1,189 @@
+FROM rastasheep/ubuntu-sshd
+
+
+
+
+COPY copyfiles/sources.list /etc/apt/
+RUN apt-get update
+RUN apt-get install -y sudo vim net-tools
+#=======================================================
+#
+# mysql
+#
+#=======================================================
+RUN sudo apt-get install -y mysql-server-5.6
+RUN sudo /etc/init.d/mysql start \
+    && mysql -uroot -e "create database metastore;" \
+    && mysql -uroot -e " CREATE USER 'hadoop'@'spark-master' IDENTIFIED BY 'hadoop';" \
+    && mysql -uroot -e "    REVOKE ALL PRIVILEGES, GRANT OPTION FROM 'hadoop'@'spark-master';" \
+    && mysql -uroot -e "    GRANT ALL ON metastore.* TO 'hadoop'@'spark-master' IDENTIFIED BY 'hadoop';" \
+    && mysql -uroot -e "    GRANT ALL ON metastore.* TO 'hadoop'@'%' IDENTIFIED BY 'hadoop';" \
+    && mysql -uroot -e "    ALTER DATABASE metastore CHARACTER SET latin1;"
+
+
+RUN sed -Ei 's/^(bind-address|log)/#&/' /etc/mysql/my.cnf \
+    && echo 'skip-host-cache\nskip-name-resolve' | awk '{ print } $1 == "[mysqld]" && c == 0 { c = 1; system("cat") }' /etc/mysql/my.cnf > /tmp/my.cnf \
+    && mv /tmp/my.cnf /etc/mysql/my.cnf
+
+EXPOSE 3306
+
+
+
+
+ADD tgzfiles/jdk-8u111-linux-x64.tar.gz /usr/local/
+
+ENV JAVA_HOME /usr/local/jdk1.8.0_111
+ENV CLASSPATH $JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
+ENV PATH $PATH:$JAVA_HOME/bin
+
+RUN addgroup hadoop
+RUN useradd -m hadoop -g hadoop -p hadoop -s /bin/bash
+# RUN sudo usermod -aG sudo hadoop
+
+ADD tgzfiles/hadoop-2.6.5.tar.gz /usr/local/
+
+RUN chown -R hadoop:hadoop /usr/local/hadoop-2.6.5
+RUN cd /usr/local && ln -s ./hadoop-2.6.5 hadoop
+RUN  rm -rf /usr/local/hadoop/lib/native
+ADD /tgzfiles/hadoop-2.6.5-native-lib.tar /usr/local/hadoop/lib
+
+ENV HADOOP_PREFIX /usr/local/hadoop
+ENV HADOOP_HOME /usr/local/hadoop
+ENV HADOOP_COMMON_HOME /usr/local/hadoop
+ENV HADOOP_HDFS_HOME /usr/local/hadoop
+ENV HADOOP_MAPRED_HOME /usr/local/hadoop
+ENV HADOOP_YARN_HOME /usr/local/hadoop
+ENV HADOOP_CONF_DIR /usr/local/hadoop/etc/hadoop
+
+RUN cd /etc/sudoers.d && sudo touch nopasswdsudo && echo "hadoop ALL=(ALL) NOPASSWD:ALL" >> nopasswdsudo
+
+#RUN mkdir /var/run/sshd
+
+USER hadoop
+
+RUN ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa
+RUN cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+# 下面这两句比较特殊，在centos6上必须要有，否则创建出来的容器sshd不能登录
+#RUN ssh-keygen -t dsa -f /etc/ssh/ssh_host_dsa_key
+#RUN ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key
+
+EXPOSE 22
+
+
+
+
+
+
+
+#========================================================
+#
+# zookeeper configs
+#
+#========================================================
+ADD tgzfiles/zookeeper-3.4.10.tar.gz /usr/local/
+RUN sudo chown -R hadoop:hadoop /usr/local/zookeeper-3.4.10
+ENV ZOOKEEPER_HOME /usr/local/zookeeper-3.4.10
+ENV PATH $PATH:$ZOOKEEPER_HOME/bin:$ZOOKEEPER_HOME/conf
+COPY copyfiles/zoo.cfg /usr/local/zookeeper-3.4.10/conf/
+COPY copyfiles/initial_zookeeper.sh /home/hadoop/
+RUN cd /usr/local/zookeeper-3.4.10/ && mkdir -p var/data  && touch myid
+
+#========================================================
+#
+# hbase configs
+#
+#========================================================
+ADD tgzfiles/hbase-1.2.6-bin.tar.gz /usr/local/
+RUN sudo chown -R hadoop:hadoop /usr/local/hbase-1.2.6
+ENV HBASE_HOME /usr/local/hbase-1.2.6
+ENV PATH $PATH:$HBASE_HOME/bin
+COPY copyfiles/hbase-env.sh /usr/local/hbase-1.2.6/conf/
+COPY copyfiles/hbase-site.xml /usr/local/hbase-1.2.6/conf/
+COPY copyfiles/regionservers /usr/local/hbase-1.2.6/conf/
+
+#========================================================
+#
+# hadoop configs
+#
+#========================================================
+ADD addfiles/hadoop-env.sh $HADOOP_HOME/etc/hadoop/
+ADD addfiles/mapred-env.sh $HADOOP_HOME/etc/hadoop/
+ADD addfiles/yarn-env.sh $HADOOP_HOME/etc/hadoop/
+ADD addfiles/core-site.xml $HADOOP_HOME/etc/hadoop/
+ADD addfiles/hdfs-site.xml $HADOOP_HOME/etc/hadoop/
+ADD addfiles/mapred-site.xml $HADOOP_HOME/etc/hadoop/
+ADD addfiles/yarn-site.xml $HADOOP_HOME/etc/hadoop/
+ADD addfiles/slaves $HADOOP_HOME/etc/hadoop/
+
+RUN sudo chown -R hadoop:hadoop $HADOOP_HOME/etc/hadoop
+RUN sudo mkdir -p /home/hadoop/hadoop_datas
+
+#RUN cd /opt && sudo mkdir hadoop && cd hadoop && sudo mkdir data
+RUN sudo chown -R hadoop:hadoop /home/hadoop/hadoop_datas
+
+WORKDIR /home/hadoop
+
+COPY copyfiles/master_bootstrap.sh /home/hadoop/
+COPY copyfiles/hosts.bak /tmp/
+
+COPY copyfiles/ssh_config /etc/ssh/ssh_config
+
+COPY copyfiles/format_hadoop.sh /home/hadoop/
+COPY copyfiles/setenv_hadoop.sh /home/hadoop/
+COPY copyfiles/slave_bootstrap.sh /home/hadoop/
+RUN sudo chown -R hadoop:hadoop /home/hadoop
+RUN sudo chmod 766 /home/hadoop/slave_bootstrap.sh
+
+RUN sudo chmod 766 /home/hadoop/master_bootstrap.sh
+
+# add this to no connect prompt of ssh
+#RUN sudo echo "StrictHostKeyChecking no" >> /etc/ssh/ssh_config
+#RUN sudo echo "UserKnownHostsFile=/dev/null" >> /etc/ssh/ssh_config
+
+#========================================================
+#
+# spark configs
+#
+#========================================================
+# scala configs
+ADD tgzfiles/scala-2.11.7.tgz /usr/local
+RUN sudo chown -R hadoop:hadoop /usr/local/scala-2.11.7
+ENV SCALA_HOME /usr/local/scala-2.11.7
+ENV PATH $PATH:$SCALA_HOME/bin
+
+# spark configs tgzfiles/spark-2.0.3-SNAPSHOT-bin-hadoop2-without-hive.tgz
+ADD tgzfiles/spark-2.0.3-SNAPSHOT-bin-hadoop2-without-hive.tgz /usr/local
+RUN sudo chown -R hadoop:hadoop /usr/local/spark-2.0.3-SNAPSHOT-bin-hadoop2-without-hive
+ENV SPARK_HOME /usr/local/spark-2.0.3-SNAPSHOT-bin-hadoop2-without-hive
+ENV PATH $PATH:$SPARK_HOME/bin:$SPARK_HOME/sbin
+ADD addfiles/spark-env.sh /usr/local/spark-2.0.3-SNAPSHOT-bin-hadoop2-without-hive/conf/
+ADD addfiles/slaves /usr/local/spark-2.0.3-SNAPSHOT-bin-hadoop2-without-hive/conf/
+ADD addfiles/spark-defaults.conf /usr/local/spark-2.0.3-SNAPSHOT-bin-hadoop2-without-hive/conf/
+COPY copyfiles/initial_spark.sh /home/hadoop
+RUN sudo mkdir -p /home/hadoop/spark_datas/spark_events
+RUN sudo chown -R hadoop:hadoop /home/hadoop
+
+EXPOSE 3888
+EXPOSE 2888
+EXPOSE 2181
+
+#========================================================
+#
+# hive
+#
+#========================================================
+ADD tgzfiles/apache-hive-2.3.1-bin.tar.gz /usr/local
+RUN cd /usr/local && sudo ln -s ./apache-hive-2.3.1-bin hive
+ENV HIVE_HOME /usr/local/hive
+ENV PATH $PATH:$HIVE_HOME/bin
+COPY tgzfiles/mysql-connector-java-5.1.44-bin.jar /usr/local/hive/lib
+RUN sudo mkdir -p /usr/local/hive/logs
+RUN sudo mkdir -p /usr/local/hive/local
+RUN sudo chown -R hadoop:hadoop /usr/local/apache-hive-2.3.1-bin
+
+COPY addfiles/hive-env.sh /usr/local/hive/conf
+COPY addfiles/hive-log4j.properties /usr/local/hive/conf
+COPY addfiles/spark-defaults.conf /usr/local/hive/conf
+COPY addfiles/hive-site.xml /usr/local/hive/conf
+
+ENTRYPOINT ["/home/hadoop/master_bootstrap.sh"]
