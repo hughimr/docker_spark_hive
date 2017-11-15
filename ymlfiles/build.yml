@@ -54,6 +54,7 @@ ENV HADOOP_HDFS_HOME /usr/local/hadoop
 ENV HADOOP_MAPRED_HOME /usr/local/hadoop
 ENV HADOOP_YARN_HOME /usr/local/hadoop
 ENV HADOOP_CONF_DIR /usr/local/hadoop/etc/hadoop
+ENV PATH $PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
 
 RUN cd /etc/sudoers.d && sudo touch nopasswdsudo && echo "hadoop ALL=(ALL) NOPASSWD:ALL" >> nopasswdsudo
 
