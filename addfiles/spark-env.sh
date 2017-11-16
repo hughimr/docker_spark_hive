@@ -81,3 +81,7 @@ export LD_LIBRARY_PATH=/usr/local/hadoop/lib/native
 #
 ################################
 export SPARK_HISTORY_OPTS="-Dspark.history.ui.port=18080 -Dspark.history.retainedApplications=50 -Dspark.history.updateInterval=10 -Dspark.history.fs.logDirectory=file:///home/hadoop/spark_datas/spark_history"
+
+
+# If 'hadoop' binary is on your PATH
+export SPARK_DIST_CLASSPATH=$(/usr/local/hadoop/bin/hadoop classpath)

@@ -152,15 +152,16 @@ RUN sudo chown -R hadoop:hadoop /usr/local/scala-2.11.7
 ENV SCALA_HOME /usr/local/scala-2.11.7
 ENV PATH $PATH:$SCALA_HOME/bin
 
-# spark configs tgzfiles/spark-2.0.3-SNAPSHOT-bin-hadoop2-without-hive.tgz
-ADD tgzfiles/spark-2.0.3-SNAPSHOT-bin-hadoop2-without-hive.tgz /usr/local
-RUN sudo chown -R hadoop:hadoop /usr/local/spark-2.0.3-SNAPSHOT-bin-hadoop2-without-hive
-ENV SPARK_HOME /usr/local/spark-2.0.3-SNAPSHOT-bin-hadoop2-without-hive
+# spark configs tgzfiles/spark-2.0.0-bin-hadoop2-without-hive.tgz
+ADD tgzfiles/spark-2.0.0-bin-hadoop2-without-hive.tgz /usr/local
+RUN sudo chown -R hadoop:hadoop /usr/local/spark-2.0.0-bin-hadoop2-without-hive
+ENV SPARK_HOME /usr/local/spark-2.0.0-bin-hadoop2-without-hive
 ENV PATH $PATH:$SPARK_HOME/bin:$SPARK_HOME/sbin
-ADD addfiles/spark-env.sh /usr/local/spark-2.0.3-SNAPSHOT-bin-hadoop2-without-hive/conf/
-ADD addfiles/slaves /usr/local/spark-2.0.3-SNAPSHOT-bin-hadoop2-without-hive/conf/
-ADD addfiles/spark-defaults.conf /usr/local/spark-2.0.3-SNAPSHOT-bin-hadoop2-without-hive/conf/
+ADD addfiles/spark-env.sh /usr/local/spark-2.0.0-bin-hadoop2-without-hive/conf/
+ADD addfiles/slaves /usr/local/spark-2.0.0-bin-hadoop2-without-hive/conf/
+ADD addfiles/spark-defaults.conf /usr/local/spark-2.0.0-bin-hadoop2-without-hive/conf/
 COPY copyfiles/initial_spark.sh /home/hadoop
+COPY tgzfiles/parquet-hadoop-1.7.0.jar $SPARK_HOME/jars/
 RUN sudo mkdir -p /home/hadoop/spark_datas/spark_events
 RUN sudo chown -R hadoop:hadoop /home/hadoop
 
@@ -186,5 +187,6 @@ COPY addfiles/hive-env.sh /usr/local/hive/conf
 COPY addfiles/hive-log4j.properties /usr/local/hive/conf
 COPY addfiles/spark-defaults.conf /usr/local/hive/conf
 COPY addfiles/hive-site.xml /usr/local/hive/conf
+COPY copyfiles/initial_hive.sh /home/hadoop
 
 ENTRYPOINT ["/home/hadoop/master_bootstrap.sh"]

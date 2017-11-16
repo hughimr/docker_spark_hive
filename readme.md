@@ -11,3 +11,5 @@ protoc: error while loading shared libraries: libprotoc.so.8: cannot open shared
 include ld.so.conf.d/*.conf
 # echo "/usr/local/lib" >> /etc/ld.so.conf
 # ldconfig
+
+hive on spark 的安装比较复杂 ，需要重新编译spark without hive的版本，同时对hadoop的版本和spark的版本要求也比较高
